@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import type { Recommendation } from "@/lib/recommendations";
+import TradeModal, { type TradePrefill } from "./TradeModal";
 
 const actionStyles: Record<Recommendation["action"], { bg: string; text: string; border: string }> = {
   buy:   { bg: "bg-green-900/40",  text: "text-green-300",  border: "border-green-700/50" },
@@ -14,18 +16,54 @@ const priorityDot: Record<Recommendation["priority"], string> = {
   low:    "bg-gray-500",
 };
 
-export default function RecommendationsPanel({ recommendations }: { recommendations: Recommendation[] }) {
+export default function RecommendationsPanel({
+  recommendations,
+  prices,
+}: {
+  recommendations: Recommendation[];
+  prices: Record<string, number>;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [prefill, setPrefill] = useState<TradePrefill | null>(null);
+
   const actionable = recommendations.filter((r) => r.action === "buy" || r.action === "sell");
   const watch = recommendations.filter((r) => r.action === "watch");
   const hold = recommendations.filter((r) => r.action === "hold");
 
+  function openModal(r: Recommendation) {
+    const price = prices[r.ticker] ?? 0;
+    const suggestedShares =
+      r.amountUsd && price > 0 ? r.amountUsd / price : undefined;
+    setPrefill({
+      ticker: r.ticker,
+      action: r.action === "buy" || r.action === "sell" ? r.action : "buy",
+      suggestedShares,
+      suggestedPrice: price || undefined,
+      note: r.reasoning[0] ?? "",
+    });
+    setModalOpen(true);
+  }
+
+  function openManual() {
+    setPrefill({ ticker: "", action: "buy" });
+    setModalOpen(true);
+  }
+
   return (
     <div className="bg-gray-900 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
         <h2 className="text-lg font-semibold">Suggested Actions</h2>
-        <span className="text-xs text-gray-500">
-          {actionable.length} actionable · {watch.length} watch · {hold.length} hold
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            {actionable.length} actionable · {watch.length} watch · {hold.length} hold
+          </span>
+          <button
+            onClick={openManual}
+            className="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          >
+            + Manual trade
+          </button>
+        </div>
       </div>
       <p className="text-xs text-gray-500 mb-4 leading-relaxed">
         Synthesizes drift, short-term drawdowns, 52-week position, valuation, and 13F smart-money backing
@@ -61,6 +99,18 @@ export default function RecommendationsPanel({ recommendations }: { recommendati
                     <span className="text-xs text-gray-600 ml-auto">
                       confidence {r.confidence}%
                     </span>
+                    {isActionable && (
+                      <button
+                        onClick={() => openModal(r)}
+                        className={`text-xs px-3 py-1 rounded font-semibold transition-colors ${
+                          r.action === "buy"
+                            ? "bg-green-700 hover:bg-green-600 text-white"
+                            : "bg-red-700 hover:bg-red-600 text-white"
+                        }`}
+                      >
+                        Execute
+                      </button>
+                    )}
                   </div>
                   <ul className="mt-1.5 space-y-0.5">
                     {r.reasoning.map((reason, i) => (
@@ -78,8 +128,10 @@ export default function RecommendationsPanel({ recommendations }: { recommendati
       </div>
 
       <p className="text-xs text-gray-700 mt-4 italic">
-        Not financial advice. Execute trades manually through your brokerage after your own research.
+        Not financial advice. Execute trades manually through your brokerage, then record them here to keep the dashboard in sync.
       </p>
+
+      <TradeModal open={modalOpen} onClose={() => setModalOpen(false)} prefill={prefill} />
     </div>
   );
 }

@@ -4,11 +4,13 @@ import HedgeFundsPanel from "@/components/HedgeFundsPanel";
 import SectorPanel from "@/components/SectorPanel";
 import ThesisTrackerPanel from "@/components/ThesisTrackerPanel";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
+import TransactionHistory from "@/components/TransactionHistory";
 import { fetchPrices } from "@/lib/prices";
 import { getPortfolioHoldings, computeHoldings, getAllTickers } from "@/lib/portfolio";
 import { fetchFund13F, diffFilings } from "@/lib/edgar";
 import { computeAlerts } from "@/lib/alerts";
 import { computeRecommendations } from "@/lib/recommendations";
+import { getAllHoldings, getRecentTransactions, isDbConfigured } from "@/lib/db";
 import portfolioConfig from "@/config/portfolio.json";
 import type { ThesisTicker } from "@/lib/mockData";
 import type { FundActivity } from "@/lib/edgar";
@@ -16,16 +18,25 @@ import type { FundActivity } from "@/lib/edgar";
 export const revalidate = 900;
 
 export default async function Dashboard() {
-  const [prices, filingsResults] = await Promise.all([
+  const [prices, filingsResults, dbHoldings, dbTransactions] = await Promise.all([
     fetchPrices(getAllTickers()).catch(() => new Map()),
     Promise.allSettled(
       portfolioConfig.hedgeFunds.map((f) => fetchFund13F(f.name, f.cik))
     ),
+    getAllHoldings().catch(() => []),
+    getRecentTransactions(25).catch(() => []),
   ]);
 
   const portfolioHoldings = getPortfolioHoldings();
+  const dbSharesByTicker = new Map(dbHoldings.map((h) => [h.ticker, h.shares]));
+
   const sharesOwned: Record<string, number> = {};
   portfolioHoldings.forEach((h) => {
+    const fromDb = dbSharesByTicker.get(h.ticker);
+    if (fromDb !== undefined && fromDb > 0) {
+      sharesOwned[h.ticker] = fromDb;
+      return;
+    }
     const p = prices.get(h.ticker)?.price;
     sharesOwned[h.ticker] = p && p > 0 ? h.targetAmount / p : 0;
   });
@@ -56,6 +67,9 @@ export default async function Dashboard() {
   const alerts = computeAlerts(computed, prices, activities, portfolioConfig.thesisTickers);
   const recommendations = computeRecommendations(computed, activities, portfolioConfig.cashTargetAmount);
 
+  const priceMap: Record<string, number> = {};
+  computed.forEach((h) => { priceMap[h.ticker] = h.currentPrice; });
+
   const hasPrices = prices.size > 0;
   const fetchedAt = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
@@ -63,22 +77,33 @@ export default async function Dashboard() {
     timeStyle: "short",
   });
 
+  const dbReady = isDbConfigured();
+  const tradeCount = dbTransactions.length;
+
   return (
     <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Hedge Tracker</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {hasPrices
               ? `Prices as of ${fetchedAt} ET · ~15 min delay`
               : "Price data unavailable — check back shortly"}
+            {dbReady && tradeCount > 0 && ` · ${tradeCount} recorded trade${tradeCount === 1 ? "" : "s"}`}
           </p>
         </div>
-        {!hasPrices && (
-          <div className="text-xs text-yellow-400 bg-yellow-900/40 px-3 py-1 rounded-full">
-            Prices unavailable
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {!dbReady && (
+            <div className="text-xs text-amber-400 bg-amber-900/40 px-3 py-1 rounded-full">
+              DB not configured — trades won't persist
+            </div>
+          )}
+          {!hasPrices && (
+            <div className="text-xs text-yellow-400 bg-yellow-900/40 px-3 py-1 rounded-full">
+              Prices unavailable
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Holdings + Sector at the top */}
@@ -92,7 +117,10 @@ export default async function Dashboard() {
       </div>
 
       {/* Suggested actions — synthesized from all data */}
-      <RecommendationsPanel recommendations={recommendations} />
+      <RecommendationsPanel recommendations={recommendations} prices={priceMap} />
+
+      {/* Transaction history — real trades recorded via Execute */}
+      <TransactionHistory transactions={dbTransactions} />
 
       {/* Alerts — compact */}
       <AlertsPanel alerts={alerts} />
