@@ -5,7 +5,8 @@ import SectorPanel from "@/components/SectorPanel";
 import ThesisTrackerPanel from "@/components/ThesisTrackerPanel";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
 import TransactionHistory from "@/components/TransactionHistory";
-import { fetchPrices } from "@/lib/prices";
+import ProgressChart, { type ChartSeries } from "@/components/ProgressChart";
+import { fetchPrices, fetchHistories, type HistoryPoint } from "@/lib/prices";
 import { getPortfolioHoldings, computeHoldings, getAllTickers } from "@/lib/portfolio";
 import { fetchFund13F, diffFilings } from "@/lib/edgar";
 import { computeAlerts } from "@/lib/alerts";
@@ -18,13 +19,15 @@ import type { FundActivity } from "@/lib/edgar";
 export const revalidate = 900;
 
 export default async function Dashboard() {
-  const [prices, filingsResults, dbHoldings, dbTransactions] = await Promise.all([
+  const portfolioTickers = portfolioConfig.holdings.map((h) => h.ticker);
+  const [prices, filingsResults, dbHoldings, dbTransactions, histories] = await Promise.all([
     fetchPrices(getAllTickers()).catch(() => new Map()),
     Promise.allSettled(
       portfolioConfig.hedgeFunds.map((f) => fetchFund13F(f.name, f.cik))
     ),
     getAllHoldings().catch(() => []),
     getRecentTransactions(25).catch(() => []),
+    fetchHistories(portfolioTickers, 6).catch(() => new Map<string, HistoryPoint[]>()),
   ]);
 
   const portfolioHoldings = getPortfolioHoldings();
@@ -69,6 +72,46 @@ export default async function Dashboard() {
 
   const priceMap: Record<string, number> = {};
   computed.forEach((h) => { priceMap[h.ticker] = h.currentPrice; });
+
+  // Build progress chart series: per-ticker value (shares × historical close) and overall sum.
+  const perTicker: ChartSeries[] = [];
+  const dateUnion = new Set<string>();
+  for (const h of computed) {
+    const hist = histories.get(h.ticker);
+    if (!hist || hist.length < 2) continue;
+    const points = hist.map((p) => {
+      dateUnion.add(p.date);
+      return { date: p.date, value: p.close * h.shares };
+    });
+    perTicker.push({ key: h.ticker, label: h.ticker, points });
+  }
+  const sortedDates = Array.from(dateUnion).sort();
+  const lastCloseByTicker = new Map<string, Map<string, number>>();
+  for (const h of computed) {
+    const hist = histories.get(h.ticker);
+    if (!hist) continue;
+    const m = new Map<string, number>();
+    let lastClose = hist[0]?.close ?? 0;
+    const byDate = new Map(hist.map((p) => [p.date, p.close]));
+    for (const d of sortedDates) {
+      const c = byDate.get(d);
+      if (c !== undefined) lastClose = c;
+      m.set(d, lastClose);
+    }
+    lastCloseByTicker.set(h.ticker, m);
+  }
+  const overallPoints = sortedDates.map((date) => {
+    let value = 0;
+    for (const h of computed) {
+      const c = lastCloseByTicker.get(h.ticker)?.get(date);
+      if (c) value += c * h.shares;
+    }
+    return { date, value };
+  });
+  const chartSeries: ChartSeries[] = [
+    { key: "overall", label: "Overall portfolio", points: overallPoints },
+    ...perTicker,
+  ];
 
   const hasPrices = prices.size > 0;
   const fetchedAt = new Date().toLocaleString("en-US", {
@@ -115,6 +158,9 @@ export default async function Dashboard() {
           <SectorPanel holdings={computed} />
         </div>
       </div>
+
+      {/* Progress chart — overall or per-ticker */}
+      <ProgressChart series={chartSeries} />
 
       {/* Suggested actions — synthesized from all data */}
       <RecommendationsPanel recommendations={recommendations} prices={priceMap} />

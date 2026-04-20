@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 export type TradePrefill = {
   ticker: string;
   action: "buy" | "sell";
-  suggestedShares?: number;
+  suggestedAmount?: number;
   suggestedPrice?: number;
   note?: string;
 };
+
+type InputMode = "shares" | "amount";
 
 export default function TradeModal({
   open,
@@ -22,7 +24,9 @@ export default function TradeModal({
   const router = useRouter();
   const [ticker, setTicker] = useState("");
   const [action, setAction] = useState<"buy" | "sell">("buy");
+  const [mode, setMode] = useState<InputMode>("amount");
   const [shares, setShares] = useState("");
+  const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +36,9 @@ export default function TradeModal({
     if (open && prefill) {
       setTicker(prefill.ticker);
       setAction(prefill.action);
-      setShares(prefill.suggestedShares ? prefill.suggestedShares.toFixed(4) : "");
+      setMode("amount");
+      setAmount(prefill.suggestedAmount ? prefill.suggestedAmount.toFixed(2) : "");
+      setShares("");
       setPrice(prefill.suggestedPrice ? prefill.suggestedPrice.toFixed(2) : "");
       setNote(prefill.note ?? "");
       setError(null);
@@ -41,19 +47,41 @@ export default function TradeModal({
 
   if (!open) return null;
 
-  const sharesNum = Number(shares);
   const priceNum = Number(price);
-  const amount = sharesNum > 0 && priceNum > 0 ? sharesNum * priceNum : 0;
+  const sharesNum =
+    mode === "shares"
+      ? Number(shares)
+      : priceNum > 0 && Number(amount) > 0
+        ? Number(amount) / priceNum
+        : 0;
+  const amountNum =
+    mode === "amount"
+      ? Number(amount)
+      : priceNum > 0 && Number(shares) > 0
+        ? Number(shares) * priceNum
+        : 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!ticker || !shares || !price) {
-      setError("All fields except note are required");
+    if (!ticker || !price) {
+      setError("Ticker and price are required");
       return;
     }
-    if (sharesNum <= 0 || priceNum <= 0) {
-      setError("Shares and price must be positive");
+    if (priceNum <= 0) {
+      setError("Price must be positive");
+      return;
+    }
+    if (mode === "shares" && (!shares || Number(shares) <= 0)) {
+      setError("Shares must be positive");
+      return;
+    }
+    if (mode === "amount" && (!amount || Number(amount) <= 0)) {
+      setError("Amount must be positive");
+      return;
+    }
+    if (sharesNum <= 0) {
+      setError("Computed shares must be positive");
       return;
     }
     setSubmitting(true);
@@ -61,7 +89,13 @@ export default function TradeModal({
       const res = await fetch("/api/trade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker, action, shares: sharesNum, price: priceNum, note: note || undefined }),
+        body: JSON.stringify({
+          ticker,
+          action,
+          shares: sharesNum,
+          price: priceNum,
+          note: note || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -77,6 +111,20 @@ export default function TradeModal({
       setSubmitting(false);
     }
   }
+
+  const modeBtn = (m: InputMode, label: string) => (
+    <button
+      type="button"
+      onClick={() => setMode(m)}
+      className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
+        mode === m
+          ? "bg-gray-700 text-white"
+          : "bg-transparent text-gray-500 hover:text-gray-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -112,20 +160,44 @@ export default function TradeModal({
             </label>
           </div>
 
+          <div>
+            <span className="text-xs text-gray-400 uppercase">Enter as</span>
+            <div className="mt-1 flex bg-gray-950 border border-gray-800 rounded p-1 gap-1">
+              {modeBtn("amount", "Dollar amount")}
+              {modeBtn("shares", "Shares")}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="text-xs text-gray-400 uppercase">Shares</span>
-              <input
-                type="number"
-                step="0.0001"
-                min="0"
-                value={shares}
-                onChange={(e) => setShares(e.target.value)}
-                className="mt-1 w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 font-mono text-sm focus:border-gray-600 focus:outline-none"
-                placeholder="0.25"
-                required
-              />
-            </label>
+            {mode === "amount" ? (
+              <label className="block">
+                <span className="text-xs text-gray-400 uppercase">Amount ($)</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="mt-1 w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 font-mono text-sm focus:border-gray-600 focus:outline-none"
+                  placeholder="100.00"
+                  required
+                />
+              </label>
+            ) : (
+              <label className="block">
+                <span className="text-xs text-gray-400 uppercase">Shares</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={shares}
+                  onChange={(e) => setShares(e.target.value)}
+                  className="mt-1 w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 font-mono text-sm focus:border-gray-600 focus:outline-none"
+                  placeholder="0.25"
+                  required
+                />
+              </label>
+            )}
             <label className="block">
               <span className="text-xs text-gray-400 uppercase">Price / share</span>
               <input
@@ -152,11 +224,17 @@ export default function TradeModal({
             />
           </label>
 
-          <div className="bg-gray-950 border border-gray-800 rounded p-3 text-sm">
+          <div className="bg-gray-950 border border-gray-800 rounded p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Shares</span>
+              <span className="font-mono text-gray-300">
+                {sharesNum > 0 ? sharesNum.toFixed(4) : "—"}
+              </span>
+            </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Total</span>
               <span className="font-mono text-white">
-                ${amount.toFixed(2)}
+                ${amountNum > 0 ? amountNum.toFixed(2) : "0.00"}
               </span>
             </div>
           </div>

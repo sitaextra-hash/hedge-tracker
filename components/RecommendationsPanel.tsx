@@ -32,12 +32,10 @@ export default function RecommendationsPanel({
 
   function openModal(r: Recommendation) {
     const price = prices[r.ticker] ?? 0;
-    const suggestedShares =
-      r.amountUsd && price > 0 ? r.amountUsd / price : undefined;
     setPrefill({
       ticker: r.ticker,
       action: r.action === "buy" || r.action === "sell" ? r.action : "buy",
-      suggestedShares,
+      suggestedAmount: r.amountUsd ?? undefined,
       suggestedPrice: price || undefined,
       note: r.reasoning[0] ?? "",
     });

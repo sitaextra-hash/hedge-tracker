@@ -139,3 +139,50 @@ export async function fetchPrices(tickers: string[]): Promise<Map<string, PriceR
   });
   return map;
 }
+
+export type HistoryPoint = { date: string; close: number };
+
+export async function fetchHistory(
+  ticker: string,
+  months = 6,
+  interval: "1d" | "1wk" = "1wk"
+): Promise<HistoryPoint[]> {
+  try {
+    const to = new Date();
+    const from = new Date();
+    from.setMonth(from.getMonth() - months);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const history: any[] = await yahooFinance.historical(
+      ticker,
+      {
+        period1: from.toISOString().split("T")[0],
+        period2: to.toISOString().split("T")[0],
+        interval,
+      },
+      { validateResult: false }
+    );
+    if (!history) return [];
+    return history
+      .filter((h) => h?.close != null)
+      .map((h) => ({
+        date: new Date(h.date).toISOString().split("T")[0],
+        close: Number(h.close),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchHistories(
+  tickers: string[],
+  months = 6
+): Promise<Map<string, HistoryPoint[]>> {
+  const results = await Promise.allSettled(tickers.map((t) => fetchHistory(t, months)));
+  const map = new Map<string, HistoryPoint[]>();
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled" && r.value.length > 0) {
+      map.set(tickers[i], r.value);
+    }
+  });
+  return map;
+}
