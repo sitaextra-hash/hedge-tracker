@@ -1,0 +1,34 @@
+{
+  "totalTarget": 2000,
+  "holdings": [
+    { "ticker": "VOO",  "targetPct": 30.0, "targetAmount": 600 },
+    { "ticker": "QQQ",  "targetPct": 12.5, "targetAmount": 250 },
+    { "ticker": "VXUS", "targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "BRK.B","targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "GOOGL","targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "MA",   "targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "BN",   "targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "SHLD", "targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "XLE",  "targetPct": 5.0,  "targetAmount": 100 },
+    { "ticker": "SMH",  "targetPct": 2.5,  "targetAmount": 50  }
+  ],
+  "cashTargetPct": 5.0,
+  "cashTargetAmount": 100,
+  "speculationTickers": ["SHLD", "XLE", "SMH"],
+  "hedgeFunds": [
+    { "name": "Berkshire Hathaway",      "cik": "0001067983" },
+    { "name": "Pershing Square",         "cik": "0001336528" },
+    { "name": "Akre Capital",            "cik": "0001112520" },
+    { "name": "Sequoia / Ruane Cunniff", "cik": "0000089043" },
+    { "name": "Greenlight Capital",      "cik": "0001079114" },
+    { "name": "Baupost Group",           "cik": "0001061165" },
+    { "name": "Coatue Management",       "cik": "0001135730" },
+    { "name": "Lone Pine Capital",       "cik": "0001061768" },
+    { "name": "Viking Global",           "cik": "0001103804" },
+    { "name": "Tiger Global",            "cik": "0001167483" },
+    { "name": "Third Point",             "cik": "0001040273" },
+    { "name": "ValueAct Capital",        "cik": "0001418814" },
+    { "name": "Trian Fund Management",   "cik": "0001345471" }
+  ],
+  "thesisTickers": ["NVDA","AVGO","TSM","ASML","VRT","CEG","GEV","SMCI"]
+}
