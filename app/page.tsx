@@ -3,12 +3,14 @@ import AlertsPanel from "@/components/AlertsPanel";
 import HedgeFundsPanel from "@/components/HedgeFundsPanel";
 import SectorPanel from "@/components/SectorPanel";
 import ThesisTrackerPanel from "@/components/ThesisTrackerPanel";
+import RecommendationsPanel from "@/components/RecommendationsPanel";
 import { fetchPrices } from "@/lib/prices";
 import { getPortfolioHoldings, computeHoldings, getAllTickers } from "@/lib/portfolio";
 import { fetchFund13F, diffFilings } from "@/lib/edgar";
 import { computeAlerts } from "@/lib/alerts";
+import { computeRecommendations } from "@/lib/recommendations";
 import portfolioConfig from "@/config/portfolio.json";
-import type { Holding, ThesisTicker } from "@/lib/mockData";
+import type { ThesisTicker } from "@/lib/mockData";
 import type { FundActivity } from "@/lib/edgar";
 
 export const revalidate = 900;
@@ -28,18 +30,6 @@ export default async function Dashboard() {
     sharesOwned[h.ticker] = p && p > 0 ? h.targetAmount / p : 0;
   });
   const computed = computeHoldings(portfolioHoldings, prices, sharesOwned);
-
-  const holdings: Holding[] = computed.map((h) => ({
-    ticker: h.ticker,
-    targetPct: h.targetPct,
-    currentPct: h.currentPct,
-    targetAmount: h.targetAmount,
-    currentAmount: h.currentAmount,
-    currentPrice: h.currentPrice,
-    shares: h.shares,
-    drift: h.drift,
-    sleeve: h.sleeve,
-  }));
 
   const thesisTickers: ThesisTicker[] = portfolioConfig.thesisTickers.map((ticker) => {
     const p = prices.get(ticker);
@@ -64,6 +54,7 @@ export default async function Dashboard() {
   });
 
   const alerts = computeAlerts(computed, prices, activities, portfolioConfig.thesisTickers);
+  const recommendations = computeRecommendations(computed, activities, portfolioConfig.cashTargetAmount);
 
   const hasPrices = prices.size > 0;
   const fetchedAt = new Date().toLocaleString("en-US", {
@@ -90,16 +81,21 @@ export default async function Dashboard() {
         )}
       </div>
 
-      <AlertsPanel alerts={alerts} />
-
+      {/* Holdings + Sector at the top */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
-          <HoldingsPanel holdings={holdings} />
+          <HoldingsPanel holdings={computed} />
         </div>
         <div>
-          <SectorPanel holdings={holdings} />
+          <SectorPanel holdings={computed} />
         </div>
       </div>
+
+      {/* Suggested actions — synthesized from all data */}
+      <RecommendationsPanel recommendations={recommendations} />
+
+      {/* Alerts — compact */}
+      <AlertsPanel alerts={alerts} />
 
       <HedgeFundsPanel
         activities={activities}

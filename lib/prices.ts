@@ -4,7 +4,12 @@ export type PriceResult = {
   ticker: string;
   price: number;
   previousClose: number;
-  weekAgoPrice: number | null; // null if unavailable
+  weekAgoPrice: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  peRatio: number | null;
+  forwardPE: number | null;
+  dividendYield: number | null; // as percentage (e.g. 1.5 = 1.5%)
   source: "stooq" | "yahoo";
 };
 
@@ -30,14 +35,36 @@ async function fetchStooq(ticker: string): Promise<number | null> {
   }
 }
 
-async function fetchYahoo(ticker: string): Promise<{ price: number; previousClose: number } | null> {
+type YahooMetrics = {
+  price: number;
+  previousClose: number;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  peRatio: number | null;
+  forwardPE: number | null;
+  dividendYield: number | null;
+};
+
+async function fetchYahoo(ticker: string): Promise<YahooMetrics | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const quote: any = await yahooFinance.quote(ticker, {}, { validateResult: false });
     const price = quote.regularMarketPrice ?? null;
     const prev = quote.regularMarketPreviousClose ?? quote.regularMarketPrice ?? null;
     if (!price) return null;
-    return { price, previousClose: prev ?? price };
+
+    // Yahoo returns trailingAnnualDividendYield as decimal (0.015 = 1.5%)
+    const divYield = quote.trailingAnnualDividendYield ?? quote.dividendYield ?? null;
+
+    return {
+      price,
+      previousClose: prev ?? price,
+      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? null,
+      peRatio: quote.trailingPE ?? null,
+      forwardPE: quote.forwardPE ?? null,
+      dividendYield: divYield != null ? divYield * 100 : null,
+    };
   } catch {
     return null;
   }
@@ -75,12 +102,28 @@ export async function fetchPrice(ticker: string): Promise<PriceResult | null> {
       price: stooqPrice,
       previousClose: yahoo?.previousClose ?? stooqPrice,
       weekAgoPrice,
+      fiftyTwoWeekHigh: yahoo?.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: yahoo?.fiftyTwoWeekLow ?? null,
+      peRatio: yahoo?.peRatio ?? null,
+      forwardPE: yahoo?.forwardPE ?? null,
+      dividendYield: yahoo?.dividendYield ?? null,
       source: "stooq",
     };
   }
 
   if (yahoo) {
-    return { ticker, price: yahoo.price, previousClose: yahoo.previousClose, weekAgoPrice, source: "yahoo" };
+    return {
+      ticker,
+      price: yahoo.price,
+      previousClose: yahoo.previousClose,
+      weekAgoPrice,
+      fiftyTwoWeekHigh: yahoo.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: yahoo.fiftyTwoWeekLow,
+      peRatio: yahoo.peRatio,
+      forwardPE: yahoo.forwardPE,
+      dividendYield: yahoo.dividendYield,
+      source: "yahoo",
+    };
   }
 
   return null;

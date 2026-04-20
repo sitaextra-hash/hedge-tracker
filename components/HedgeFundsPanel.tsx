@@ -48,18 +48,23 @@ export default function HedgeFundsPanel({
   return (
     <div className="bg-gray-900 rounded-xl p-5">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-lg font-semibold">13F Activity</h2>
+        <h2 className="text-lg font-semibold">13F Filings</h2>
         <span className="text-xs text-gray-500 flex items-center gap-1">
-          Filed dates shown · 45-day lag
+          45-day filing lag
           <span
             className="cursor-help"
-            title="13F filings are due 45 days after quarter end. Data reflects fund positions as of the quarter end, not today."
+            title="13F filings are due 45 days after quarter end. Data reflects fund positions as of quarter-end, not today."
           >ⓘ</span>
         </span>
       </div>
+      <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+        US hedge funds managing over $100M must file 13F forms with the SEC each quarter, disclosing their US equity holdings.
+        This shows <span className="text-gray-400">notable moves</span> — new positions, exits, and changes &gt;20% — from the 13 funds tracked.
+        Use as a conviction signal, not a real-time feed.
+      </p>
       {fundsProcessed !== undefined && (
         <p className="text-xs text-gray-600 mb-4">
-          {fundsProcessed} of 13 funds loaded · Notable moves only (&gt;20% change, new, exits) · Top 50 by value
+          {fundsProcessed}/13 funds loaded · Top 50 moves by value
           {fetchedAt && ` · Updated ${new Date(fetchedAt).toLocaleDateString()}`}
         </p>
       )}

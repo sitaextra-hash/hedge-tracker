@@ -1,5 +1,5 @@
 "use client";
-import { Holding } from "@/lib/mockData";
+import type { ComputedHolding } from "@/lib/portfolio";
 
 const SECTOR_MAP: Record<string, string> = {
   VOO: "US Equity",
@@ -26,7 +26,7 @@ const SECTOR_COLOR: Record<string, string> = {
   "Semis/AI":    "bg-emerald-600",
 };
 
-export default function SectorPanel({ holdings }: { holdings: Holding[] }) {
+export default function SectorPanel({ holdings }: { holdings: ComputedHolding[] }) {
   const sectorMap = new Map<string, number>();
   const total = holdings.reduce((s, h) => s + h.currentAmount, 0);
 
