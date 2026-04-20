@@ -1,16 +1,15 @@
 {
   "totalTarget": 2000,
   "holdings": [
-    { "ticker": "VOO",  "targetPct": 30.0, "targetAmount": 600 },
-    { "ticker": "QQQ",  "targetPct": 12.5, "targetAmount": 250 },
-    { "ticker": "VXUS", "targetPct": 7.5,  "targetAmount": 150 },
-    { "ticker": "BRK.B","targetPct": 7.5,  "targetAmount": 150 },
-    { "ticker": "GOOGL","targetPct": 7.5,  "targetAmount": 150 },
+    { "ticker": "VOO",  "targetPct": 15.0, "targetAmount": 300 },
+    { "ticker": "QQQ",  "targetPct": 20.0, "targetAmount": 400 },
+    { "ticker": "SMH",  "targetPct": 15.0, "targetAmount": 300 },
+    { "ticker": "GOOGL","targetPct": 12.5, "targetAmount": 250 },
+    { "ticker": "SHLD", "targetPct": 10.0, "targetAmount": 200 },
+    { "ticker": "XLE",  "targetPct": 7.5,  "targetAmount": 150 },
     { "ticker": "MA",   "targetPct": 7.5,  "targetAmount": 150 },
     { "ticker": "BN",   "targetPct": 7.5,  "targetAmount": 150 },
-    { "ticker": "SHLD", "targetPct": 7.5,  "targetAmount": 150 },
-    { "ticker": "XLE",  "targetPct": 5.0,  "targetAmount": 100 },
-    { "ticker": "SMH",  "targetPct": 2.5,  "targetAmount": 50  }
+    { "ticker": "BRK.B","targetPct": 5.0,  "targetAmount": 100 }
   ],
   "cashTargetPct": 5.0,
   "cashTargetAmount": 100,

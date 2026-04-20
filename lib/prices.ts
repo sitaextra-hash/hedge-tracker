@@ -1,4 +1,6 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+
+const yahooFinance = new YahooFinance();
 
 export type PriceResult = {
   ticker: string;
@@ -76,14 +78,15 @@ async function fetchWeekAgoPrice(ticker: string): Promise<number | null> {
     const from = new Date();
     from.setDate(from.getDate() - 8); // 8 days back to account for weekends
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const history: any[] = await yahooFinance.historical(
+    const result: any = await yahooFinance.chart(
       ticker,
-      { period1: from.toISOString().split("T")[0], period2: to.toISOString().split("T")[0], interval: "1d" },
+      { period1: from, period2: to, interval: "1d" },
       { validateResult: false }
     );
-    if (!history || history.length < 2) return null;
-    // history is sorted oldest→newest; take the oldest entry as ~7 days ago
-    return history[0]?.close ?? null;
+    const quotes = result?.quotes ?? [];
+    if (quotes.length < 2) return null;
+    // quotes sorted oldest→newest; take the oldest as ~7 days ago
+    return quotes[0]?.close ?? null;
   } catch {
     return null;
   }
@@ -152,21 +155,17 @@ export async function fetchHistory(
     const from = new Date();
     from.setMonth(from.getMonth() - months);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const history: any[] = await yahooFinance.historical(
+    const result: any = await yahooFinance.chart(
       ticker,
-      {
-        period1: from.toISOString().split("T")[0],
-        period2: to.toISOString().split("T")[0],
-        interval,
-      },
+      { period1: from, period2: to, interval },
       { validateResult: false }
     );
-    if (!history) return [];
-    return history
-      .filter((h) => h?.close != null)
-      .map((h) => ({
-        date: new Date(h.date).toISOString().split("T")[0],
-        close: Number(h.close),
+    const quotes: { date: string | Date; close: number | null }[] = result?.quotes ?? [];
+    return quotes
+      .filter((q) => q?.close != null)
+      .map((q) => ({
+        date: new Date(q.date).toISOString().split("T")[0],
+        close: Number(q.close),
       }));
   } catch {
     return [];
